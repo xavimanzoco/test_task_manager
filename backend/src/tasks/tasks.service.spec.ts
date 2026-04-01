@@ -2,6 +2,10 @@ import { calculateAggregatedEffort } from './tasks.service';
 import { Task } from './task.entity';
 import { TaskStatus } from './enums/task-status.enum';
 import { TaskPriority } from './enums/task-priority.enum';
+import { Test } from '@nestjs/testing';
+import { TasksService } from './tasks.service';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { NotFoundException } from '@nestjs/common';
 
 function makeTask(overrides: Partial<Task>): Task {
   return {
@@ -94,5 +98,41 @@ describe('calculateAggregatedEffort', () => {
       done: 5,
       total: 5,
     });
+  });
+});
+
+describe('TasksService.create', () => {
+  let service: TasksService;
+  let mockRepo: any;
+
+  beforeEach(async () => {
+    mockRepo = {
+      create: jest.fn().mockImplementation((dto) => dto),
+      save: jest.fn().mockImplementation((task) => Promise.resolve({ id: 1, ...task })),
+      findOne: jest.fn(),
+      createQueryBuilder: jest.fn(),
+    };
+
+    const module = await Test.createTestingModule({
+      providers: [
+        TasksService,
+        { provide: getRepositoryToken(Task), useValue: mockRepo },
+      ],
+    }).compile();
+
+    service = module.get<TasksService>(TasksService);
+  });
+
+  it('crea una tarea sin padre', async () => {
+    const result = await service.create({ title: 'Nueva tarea' });
+    expect(result.title).toBe('Nueva tarea');
+    expect(mockRepo.save).toHaveBeenCalled();
+  });
+
+  it('falla si el parent_id no existe', async () => {
+    mockRepo.findOne.mockResolvedValue(null);
+    await expect(
+      service.create({ title: 'Subtarea', parent_id: 999 }),
+    ).rejects.toThrow(NotFoundException);
   });
 });
