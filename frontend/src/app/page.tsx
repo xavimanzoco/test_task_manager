@@ -13,12 +13,15 @@ export default async function Home({ searchParams }: PageProps) {
   const { data: tasks, total, page, limit } = await fetchTasks(params);
 
   return (
-    <main className="max-w-6xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
+    <main className="max-w-5xl mx-auto px-6 py-10">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">My Tasks</h1>
+          <p className="text-sm text-gray-400 mt-1">{total} task{total !== 1 ? 's' : ''} total</p>
+        </div>
         <Link
           href="/tasks/new"
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700"
+          className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-700 transition-colors"
         >
           + New Task
         </Link>
@@ -29,9 +32,14 @@ export default async function Home({ searchParams }: PageProps) {
       </div>
 
       {tasks.length === 0 ? (
-        <p className="text-center text-gray-400 py-12">No tasks found.</p>
+        <div className="text-center py-20">
+          <p className="text-gray-400 text-sm">No tasks found.</p>
+          <Link href="/tasks/new" className="text-sm text-gray-900 underline mt-2 inline-block">
+            Create your first task
+          </Link>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {tasks.map((task) => (
             <TaskCard key={task.id} task={task} />
           ))}
