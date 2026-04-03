@@ -1,12 +1,13 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE =
+  typeof window !== 'undefined'
+    ? (process.env.NEXT_PUBLIC_API_URL_CLIENT || 'http://localhost:3001')
+    : (process.env.API_URL_SERVER || 'http://localhost:3001');
 
 import { Task, TasksResponse } from '@/types/task';
 
-export async function fetchTasks(params: Record<string, string> = {}): Promise<TasksResponse> {
+export async function fetchTasks(params: Record<string, string> = {}, signal?: AbortSignal): Promise<TasksResponse> {
   const query = new URLSearchParams(params).toString();
-  const res = await fetch(`${API_BASE}/tasks${query ? `?${query}` : ''}`, {
-    cache: 'no-store',
-  });
+  const res = await fetch(`${API_BASE}/tasks${query ? `?${query}` : ''}`, { signal });
   if (!res.ok) throw new Error('Error fetching tasks');
   return res.json();
 }

@@ -16,62 +16,117 @@ export default async function TaskDetailPage({ params }: PageProps) {
 
   if (!task) return notFound();
 
+  const effort = task.aggregatedEffort;
+  const totalEffort = effort?.total ?? 0;
+  const donePercent = totalEffort > 0 ? Math.round(((effort?.done ?? 0) / totalEffort) * 100) : 0;
+
   return (
-    <main className="max-w-3xl mx-auto px-6 py-10">
+    <main className="max-w-6xl mx-auto px-8 py-8">
+      {/* Back link */}
       <div className="mb-6">
-        <Link href="/" className="text-sm text-gray-400 hover:text-gray-600 transition-colors">
-          ← Back to tasks
+        <Link href="/" className="group inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-indigo-600 transition-colors font-medium">
+          <span className="transition-transform group-hover:-translate-x-1">←</span>
+          Back to dashboard
         </Link>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl p-6 mb-4">
-        <div className="flex items-start justify-between gap-4 mb-3">
-          <h1 className="text-2xl font-semibold text-gray-900 leading-tight">{task.title}</h1>
-          <TaskActions task={task} />
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
 
-        {task.description && (
-          <p className="text-gray-500 text-sm mb-4 leading-relaxed">{task.description}</p>
-        )}
+        {/* ── Main column ── */}
+        <div className="lg:col-span-2 space-y-5">
 
-        <div className="flex gap-2 mb-4">
-          <StatusBadge status={task.status} />
-          <PriorityBadge priority={task.priority} />
-          {task.effort_estimate != null && (
-            <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-500">
-              ⏱ {task.effort_estimate} pts
-            </span>
-          )}
-        </div>
+          {/* Hero card */}
+          <div className="bg-white border border-slate-100 rounded-2xl p-8 shadow-sm">
+            <div className="flex gap-2 mb-5">
+              <StatusBadge status={task.status} />
+              <PriorityBadge priority={task.priority} />
+            </div>
+            <h1 className="text-3xl font-bold text-slate-900 leading-tight tracking-tight mb-4">
+              {task.title}
+            </h1>
+            <p className="text-slate-500 leading-relaxed text-base">
+              {task.description ?? <span className="italic text-slate-300">No description provided.</span>}
+            </p>
+          </div>
 
-        {task.aggregatedEffort && (
-          <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">Aggregated Effort</p>
-            <div className="flex gap-8">
-              <div className="flex flex-col gap-1">
-                <p className="text-lg font-semibold text-gray-700">{task.aggregatedEffort.not_started}</p>
-                <p className="text-xs text-gray-400">Not started</p>
+          {/* Workload */}
+          {effort && (
+            <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Workload Distribution</h3>
+                <span className="text-xs font-semibold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full">
+                  {donePercent}% complete
+                </span>
               </div>
-              <div className="flex flex-col gap-1">
-                <p className="text-lg font-semibold text-blue-500">{task.aggregatedEffort.in_progress}</p>
-                <p className="text-xs text-gray-400">In progress</p>
+
+              {/* Progress bar */}
+              <div className="w-full h-2 bg-slate-100 rounded-full mb-6 overflow-hidden">
+                <div
+                  className="h-full bg-emerald-400 rounded-full transition-all"
+                  style={{ width: `${donePercent}%` }}
+                />
               </div>
-              <div className="flex flex-col gap-1">
-                <p className="text-lg font-semibold text-green-500">{task.aggregatedEffort.done}</p>
-                <p className="text-xs text-gray-400">Done</p>
-              </div>
-              <div className="flex flex-col gap-1 ml-auto">
-                <p className="text-lg font-semibold text-gray-900">{task.aggregatedEffort.total}</p>
-                <p className="text-xs text-gray-400">Total</p>
+
+              <div className="grid grid-cols-4 gap-3">
+                {[
+                  { label: 'Total', value: effort.total, color: 'text-slate-700', bg: 'bg-slate-50', border: 'border-slate-100' },
+                  { label: 'In Progress', value: effort.in_progress, color: 'text-indigo-600', bg: 'bg-indigo-50', border: 'border-indigo-100' },
+                  { label: 'Done', value: effort.done, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-emerald-100' },
+                  { label: 'Not Started', value: effort.not_started, color: 'text-slate-400', bg: 'bg-slate-50', border: 'border-slate-100' },
+                ].map(({ label, value, color, bg, border }) => (
+                  <div key={label} className={`${bg} border ${border} p-4 rounded-xl`}>
+                    <p className={`text-2xl font-bold ${color}`}>{value}</p>
+                    <p className={`text-[11px] font-semibold uppercase tracking-wide mt-1 ${color} opacity-70`}>{label}</p>
+                  </div>
+                ))}
               </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
 
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">Subtasks</h2>
-        <SubtaskList tasks={task.children ?? []} parentId={task.id} />
+          {/* Subtasks */}
+          <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-sm">
+            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-5">Subtasks</h2>
+            <SubtaskList tasks={task.children ?? []} parentId={task.id} />
+          </div>
+        </div>
+
+        {/* ── Sidebar ── */}
+        <aside className="lg:col-span-1 space-y-4">
+
+          {/* Actions */}
+          <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Actions</p>
+            <TaskActions task={task} />
+          </div>
+
+          {/* Metadata */}
+          <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
+            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-4">Metadata</p>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-400">Estimation</span>
+                <span className="text-sm font-semibold text-slate-700 bg-slate-50 px-2.5 py-0.5 rounded-full border border-slate-100">
+                  {task.effort_estimate ?? 0} pts
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-400">Subtasks</span>
+                <span className="text-sm font-semibold text-slate-700 bg-slate-50 px-2.5 py-0.5 rounded-full border border-slate-100">
+                  {task.children?.length ?? 0}
+                </span>
+              </div>
+              {totalEffort > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-400">Progress</span>
+                  <span className="text-sm font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">
+                    {donePercent}%
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+        </aside>
       </div>
     </main>
   );

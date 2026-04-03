@@ -1,8 +1,17 @@
 'use client';
 
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { TaskStatus, TaskPriority } from '@/types/task';
+
+function useDebounce<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
+}
 
 export default function FilterBar() {
   const router = useRouter();
@@ -12,13 +21,25 @@ export default function FilterBar() {
   const [status, setStatus] = useState(searchParams.get('status') ?? '');
   const [priority, setPriority] = useState(searchParams.get('priority') ?? '');
 
-  function apply() {
+  const debouncedSearch = useDebounce(search, 500);
+  const isFirstRender = useRef(true);
+
+  function buildParams(s: string, st: string, p: string) {
     const params = new URLSearchParams();
-    if (search) params.set('search', search);
-    if (status) params.set('status', status);
-    if (priority) params.set('priority', priority);
-    router.push(`/?${params.toString()}`);
+    if (s) params.set('search', s);
+    if (st) params.set('status', st);
+    if (p) params.set('priority', p);
+    return params;
   }
+
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    const params = buildParams(debouncedSearch, status, priority);
+    router.push(`/?${params.toString()}`);
+  }, [debouncedSearch, status, priority]);
 
   function clear() {
     setSearch('');
@@ -27,20 +48,33 @@ export default function FilterBar() {
     router.push('/');
   }
 
+  const inputClass = "border border-slate-200 rounded-xl px-4 h-10 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-300 text-slate-700 placeholder-slate-400";
+
   return (
-    <div className="flex flex-wrap gap-3 items-end">
-      <input
-        type="text"
-        placeholder="Search tasks..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
+    <div className="flex flex-wrap gap-3 items-center">
+      <div className="relative">
+        <input
+          type="text"
+          placeholder="Search tasks..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className={`${inputClass} w-87 pr-9`}
+        />
+        {search && (
+          <button
+            onClick={() => setSearch('')}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors text-xs"
+            title="Clear search"
+          >
+            ✕
+          </button>
+        )}
+      </div>
 
       <select
         value={status}
         onChange={(e) => setStatus(e.target.value)}
-        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className={inputClass}
       >
         <option value="">All statuses</option>
         <option value={TaskStatus.NOT_STARTED}>Not Started</option>
@@ -51,27 +85,13 @@ export default function FilterBar() {
       <select
         value={priority}
         onChange={(e) => setPriority(e.target.value)}
-        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className={inputClass}
       >
         <option value="">All priorities</option>
         <option value={TaskPriority.LOW}>Low</option>
         <option value={TaskPriority.MEDIUM}>Medium</option>
         <option value={TaskPriority.HIGH}>High</option>
       </select>
-
-      <button
-        onClick={apply}
-        className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700"
-      >
-        Apply
-      </button>
-
-      <button
-        onClick={clear}
-        className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-200"
-      >
-        Clear
-      </button>
     </div>
   );
 }

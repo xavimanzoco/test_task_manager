@@ -22,25 +22,31 @@ export default function Pagination({ total, page, limit }: PaginationProps) {
   }
 
   return (
-    <div className="flex items-center gap-2 justify-center mt-6">
+    <div className="flex items-center gap-3 justify-center mt-6">
       <button
         onClick={() => goToPage(page - 1)}
-        disabled={page <= 1} // deshabilitado en la primera página
-        className="px-3 py-1 rounded border text-sm disabled:opacity-40 hover:bg-gray-100"
+        disabled={page <= 1}
+        className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 bg-white hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
       >
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
         Previous
       </button>
 
-      <span className="text-sm text-gray-600">
-        Page {page} of {totalPages}
+      <span className="text-sm text-slate-400 font-medium px-2">
+        {page} / {totalPages}
       </span>
 
       <button
         onClick={() => goToPage(page + 1)}
-        disabled={page >= totalPages} // deshabilitado en la última página
-        className="px-3 py-1 rounded border text-sm disabled:opacity-40 hover:bg-gray-100"
+        disabled={page >= totalPages}
+        className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 text-sm font-medium text-slate-600 bg-white hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
       >
         Next
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
       </button>
     </div>
   );

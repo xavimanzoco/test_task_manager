@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Task } from './task.entity';
@@ -52,7 +52,8 @@ export class TasksService {
     const qb = this.taskRepository
       .createQueryBuilder('task')
       .where('task.parent IS NULL')
-      .loadRelationCountAndMap('task.childrenCount', 'task.children');
+      .loadRelationCountAndMap('task.childrenCount', 'task.children')
+      .leftJoinAndSelect('task.children', 'children');
 
     if (status) qb.andWhere('task.status = :status', { status });
     if (priority) qb.andWhere('task.priority = :priority', { priority });
@@ -74,28 +75,35 @@ export class TasksService {
   }
 
   async findOne(id: number): Promise<Task & { aggregatedEffort: AggregatedEffort }> {
-    const task = await this.taskRepository.findOne({
-      where: { id },
-      relations: ['children'],
-    });
+    // Single query: fetch entire subtree using recursive CTE (no N+1)
+    const rows: any[] = await this.taskRepository.query(
+      `WITH RECURSIVE subtree AS (
+        SELECT * FROM task WHERE id = ?
+        UNION ALL
+        SELECT t.* FROM task t INNER JOIN subtree s ON t.parent_id = s.id
+      )
+      SELECT * FROM subtree`,
+      [id],
+    );
 
-    if (!task) throw new NotFoundException(`Task ${id} not found`);
+    if (rows.length === 0) throw new NotFoundException(`Task ${id} not found`);
 
-    await this.loadChildrenRecursive(task);
-
-    return { ...task, aggregatedEffort: calculateAggregatedEffort(task) };
-  }
-
-  private async loadChildrenRecursive(task: Task, depth = 0): Promise<void> {
-    if (depth >= 10 || !task.children?.length) return;
-    for (const child of task.children) {
-      const loaded = await this.taskRepository.findOne({
-        where: { id: child.id },
-        relations: ['children'],
-      });
-      child.children = loaded?.children ?? [];
-      await this.loadChildrenRecursive(child, depth + 1);
+    // Assemble tree in memory
+    const map = new Map<number, Task>();
+    for (const row of rows) {
+      const t = row as Task;
+      t.children = [];
+      map.set(t.id, t);
     }
+
+    for (const row of rows) {
+      if (row.parent_id != null && map.has(row.parent_id)) {
+        map.get(row.parent_id)!.children.push(map.get(row.id)!);
+      }
+    }
+
+    const root = map.get(id)!;
+    return { ...root, aggregatedEffort: calculateAggregatedEffort(root) };
   }
 
   async create(dto: CreateTaskDto): Promise<Task> {
@@ -120,6 +128,15 @@ export class TasksService {
     const task = await this.taskRepository.findOne({ where: { id } });
     if (!task) throw new NotFoundException(`Task ${id} not found`);
 
+    if (dto.parent_id !== undefined) {
+      if (dto.parent_id === id) throw new BadRequestException('A task cannot be its own parent');
+      const isCircular = await this.isDescendant(id, dto.parent_id);
+      if (isCircular) throw new BadRequestException('Circular reference: the new parent is a descendant of this task');
+      const parent = await this.taskRepository.findOne({ where: { id: dto.parent_id } });
+      if (!parent) throw new NotFoundException(`Parent task ${dto.parent_id} not found`);
+      task.parent = parent;
+    }
+
     Object.assign(task, {
       ...(dto.title !== undefined && { title: dto.title }),
       ...(dto.description !== undefined && { description: dto.description }),
@@ -135,5 +152,19 @@ export class TasksService {
     const task = await this.taskRepository.findOne({ where: { id } });
     if (!task) throw new NotFoundException(`Task ${id} not found`);
     await this.taskRepository.remove(task);
+  }
+
+  // Checks if candidateId is a descendant of taskId using a recursive CTE
+  private async isDescendant(taskId: number, candidateId: number): Promise<boolean> {
+    const rows: any[] = await this.taskRepository.query(
+      `WITH RECURSIVE subtree AS (
+        SELECT id FROM task WHERE id = ?
+        UNION ALL
+        SELECT t.id FROM task t INNER JOIN subtree s ON t.parent_id = s.id
+      )
+      SELECT id FROM subtree WHERE id = ?`,
+      [taskId, candidateId],
+    );
+    return rows.length > 0;
   }
 }
